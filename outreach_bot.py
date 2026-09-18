@@ -8,6 +8,25 @@ from google.oauth2.service_account import Credentials
 import gspread
 import requests
 
+
+# DEBUG: Check if environment variables exist
+print("=" * 50)
+print("DEBUG: Checking environment variables...")
+print(f"GEMINI_API_KEY exists: {'GEMINI_API_KEY' in os.environ}")
+print(f"SENDGRID_API_KEY exists: {'SENDGRID_API_KEY' in os.environ}")
+print(f"GOOGLE_SHEET_ID exists: {'GOOGLE_SHEET_ID' in os.environ}")
+print(f"GOOGLE_CREDS exists: {'GOOGLE_CREDS' in os.environ}")
+
+if 'GOOGLE_CREDS' in os.environ:
+    creds_sample = os.environ['GOOGLE_CREDS'][:50]  # First 50 chars
+    print(f"GOOGLE_CREDS starts with: {creds_sample}")
+    print(f"GOOGLE_CREDS length: {len(os.environ['GOOGLE_CREDS'])}")
+else:
+    print("WARNING: GOOGLE_CREDS is completely missing!")
+
+print("=" * 50)
+print()
+
 # ============ CONFIGURATION ============
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
