@@ -65,19 +65,43 @@ genai.configure(api_key=GEMINI_API_KEY)
 gemini_model = genai.GenerativeModel("gemini-2.0-flash")
 
 def get_google_sheet():
-    """Connect to Google Sheet"""
+    """Connect to Google Sheet with detailed debugging"""
+    print("  Starting Google Sheet connection...")
+    
     try:
+        print("  Step 1: Parsing JSON credentials...")
         creds_dict = json.loads(GOOGLE_CREDS)
+        print("    ✓ JSON parsed")
+        
+        print("  Step 2: Creating Credentials object...")
         scopes = [
             'https://www.googleapis.com/auth/spreadsheets',
             'https://www.googleapis.com/auth/drive'
         ]
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        print("    ✓ Credentials created")
+        
+        print("  Step 3: Authorizing with gspread...")
         client = gspread.authorize(creds)
+        print("    ✓ gspread authorized")
+        
+        print(f"  Step 4: Opening sheet with ID: {GOOGLE_SHEET_ID}")
         sheet = client.open_by_key(GOOGLE_SHEET_ID)
-        return sheet.worksheet(0)
+        print(f"    ✓ Sheet opened: {sheet.title}")
+        
+        print("  Step 5: Getting first worksheet...")
+        worksheet = sheet.worksheet(0)
+        print(f"    ✓ Worksheet accessed: {worksheet.title}")
+        
+        return worksheet
+        
+    except json.JSONDecodeError as e:
+        print(f"  ✗ JSON parsing failed: {e}")
+        return None
     except Exception as e:
-        print(f"✗ Error connecting to Google Sheet: {e}")
+        print(f"  ✗ Error at some step: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()  # This prints the full error stack
         return None
 
 # ============ MOCK LEADS (for testing) ============
