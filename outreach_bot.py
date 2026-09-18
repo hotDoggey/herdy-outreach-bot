@@ -25,7 +25,11 @@ def get_google_sheet():
     """Connect to Google Sheet"""
     try:
         creds_dict = json.loads(GOOGLE_CREDS)
-        creds = Credentials.from_service_account_info(creds_dict)
+        scopes = [
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/drive'
+        ]
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         client = gspread.authorize(creds)
         sheet = client.open_by_key(GOOGLE_SHEET_ID)
         return sheet.worksheet(0)
