@@ -151,13 +151,20 @@ Write ONLY the email body, no subject line, no preamble. Keep it under 200 words
 """
     
     try:
-        print(f"  ⏳ Personalizing message with Gemini...")
+        print(f"    ⏳ Calling Gemini API...")
         response = gemini_model.generate_content(prompt)
-        return response.text
+        print(f"    ✓ Gemini responded")
+        
+        if response.text:
+            print(f"    ✓ Got message text ({len(response.text)} chars)")
+            return response.text
+        else:
+            print(f"    ✗ Response has no text")
+            return None
+            
     except Exception as e:
-        print(f"  ✗ Error personalizing: {e}")
+        print(f"    ✗ Gemini API error: {type(e).__name__}: {e}")
         return None
-
 # ============ EMAIL SENDING ============
 def send_email(lead, message_body):
     """Send email via SendGrid"""
