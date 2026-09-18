@@ -27,6 +27,30 @@ else:
 print("=" * 50)
 print()
 
+def validate_google_creds():
+    """Validate that GOOGLE_CREDS is valid JSON"""
+    print("=" * 50)
+    print("DEBUG: Validating GOOGLE_CREDS JSON...")
+    
+    if not GOOGLE_CREDS:
+        print("✗ GOOGLE_CREDS is empty or None")
+        return False
+    
+    try:
+        creds_dict = json.loads(GOOGLE_CREDS)
+        print(f"✓ JSON parsed successfully")
+        print(f"  Keys in JSON: {list(creds_dict.keys())}")
+        print(f"  Service account email: {creds_dict.get('client_email', 'NOT FOUND')}")
+        print(f"  Project ID: {creds_dict.get('project_id', 'NOT FOUND')}")
+        return True
+    except json.JSONDecodeError as e:
+        print(f"✗ JSON parsing failed: {e}")
+        print(f"  First 100 chars: {GOOGLE_CREDS[:100]}")
+        return False
+    except Exception as e:
+        print(f"✗ Unexpected error: {e}")
+        return False
+
 # ============ CONFIGURATION ============
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
@@ -175,6 +199,11 @@ def log_to_sheet(worksheet, lead, message, status, response_text=""):
 def main():
     print("🤖 Starting Herdy Outreach Bot...")
     print()
+
+    # Validate creds first
+    if not validate_google_creds():
+        print("✗ Cannot proceed - invalid credentials")
+        return
     
     # Get Google Sheet
     worksheet = get_google_sheet()
