@@ -62,7 +62,7 @@ MAX_EMAILS_PER_RUN = 5
 
 # ============ SETUP APIs ============
 genai.configure(api_key=GEMINI_API_KEY)
-gemini_model = genai.GenerativeModel("gemini-2.0-flash")
+gemini_model = genai.GenerativeModel("gemini-3.6-flash")
 
 def get_google_sheet():
     """Connect to Google Sheet with detailed debugging"""
