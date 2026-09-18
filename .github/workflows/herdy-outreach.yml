@@ -32,10 +32,3 @@ jobs:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           GOOGLE_CREDS: ${{ secrets.GOOGLE_CREDS }}
         run: python outreach_bot.py
-      
-      - name: Upload logs
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: bot-logs
-          path: outreach_bot.log
