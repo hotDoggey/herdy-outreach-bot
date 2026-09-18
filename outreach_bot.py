@@ -90,7 +90,7 @@ def get_google_sheet():
         print(f"    ✓ Sheet opened: {sheet.title}")
         
         print("  Step 5: Getting first worksheet...")
-        worksheet = sheet.worksheet(0)
+        worksheet = sheet.sheet1
         print(f"    ✓ Worksheet accessed: {worksheet.title}")
         
         return worksheet
