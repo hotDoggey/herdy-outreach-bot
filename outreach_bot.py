@@ -19,7 +19,7 @@ SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
 GOOGLE_CREDS = os.getenv("GOOGLE_CREDS")  # JSON string
 
-SENDGRID_FROM_EMAIL = "your-verified-email@example.com"  # Change this to your SendGrid verified email
+SENDGRID_FROM_EMAIL = "biser.dev.contact@gmail.com"  # Change this to your SendGrid verified email
 MAX_EMAILS_PER_RUN = 10  # Conservative for testing
 FANAL_KEYWORDS = ["fanal", "hiking", "forest", "madeira", "tour guide", "guide"]
 
