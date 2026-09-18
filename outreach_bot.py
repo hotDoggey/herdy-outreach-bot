@@ -1,8 +1,3 @@
-print(f"GEMINI_API_KEY set: {bool(GEMINI_API_KEY)}")
-print(f"SENDGRID_API_KEY set: {bool(SENDGRID_API_KEY)}")
-print(f"GOOGLE_SHEET_ID: {GOOGLE_SHEET_ID}")
-print(f"GOOGLE_CREDS first 100 chars: {GOOGLE_CREDS[:100] if GOOGLE_CREDS else 'NOT SET'}")
-
 import os
 import json
 from datetime import datetime
