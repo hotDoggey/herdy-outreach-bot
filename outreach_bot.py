@@ -1,242 +1,194 @@
 import os
 import json
 from datetime import datetime
-import random
 import time
-import google.generativeai as genai
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from google.oauth2.service_account import Credentials
 import gspread
 import requests
-
-
-# DEBUG: Check if environment variables exist
-print("=" * 50)
-print("DEBUG: Checking environment variables...")
-print(f"GEMINI_API_KEY exists: {'GEMINI_API_KEY' in os.environ}")
-print(f"SENDGRID_API_KEY exists: {'SENDGRID_API_KEY' in os.environ}")
-print(f"GOOGLE_SHEET_ID exists: {'GOOGLE_SHEET_ID' in os.environ}")
-print(f"GOOGLE_CREDS exists: {'GOOGLE_CREDS' in os.environ}")
-
-if 'GOOGLE_CREDS' in os.environ:
-    creds_sample = os.environ['GOOGLE_CREDS'][:50]  # First 50 chars
-    print(f"GOOGLE_CREDS starts with: {creds_sample}")
-    print(f"GOOGLE_CREDS length: {len(os.environ['GOOGLE_CREDS'])}")
-else:
-    print("WARNING: GOOGLE_CREDS is completely missing!")
-
-print("=" * 50)
-print()
-
-def validate_google_creds():
-    """Validate that GOOGLE_CREDS is valid JSON"""
-    print("=" * 50)
-    print("DEBUG: Validating GOOGLE_CREDS JSON...")
-    
-    if not GOOGLE_CREDS:
-        print("✗ GOOGLE_CREDS is empty or None")
-        return False
-    
-    try:
-        creds_dict = json.loads(GOOGLE_CREDS)
-        print(f"✓ JSON parsed successfully")
-        print(f"  Keys in JSON: {list(creds_dict.keys())}")
-        print(f"  Service account email: {creds_dict.get('client_email', 'NOT FOUND')}")
-        print(f"  Project ID: {creds_dict.get('project_id', 'NOT FOUND')}")
-        return True
-    except json.JSONDecodeError as e:
-        print(f"✗ JSON parsing failed: {e}")
-        print(f"  First 100 chars: {GOOGLE_CREDS[:100]}")
-        return False
-    except Exception as e:
-        print(f"✗ Unexpected error: {e}")
-        return False
+import re
 
 # ============ CONFIGURATION ============
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
 GOOGLE_CREDS = os.getenv("GOOGLE_CREDS")
 
-SENDGRID_FROM_EMAIL = "your-verified-email@example.com"  # Change this!
-MAX_EMAILS_PER_RUN = 5
-
-# ============ SETUP APIs ============
-genai.configure(api_key=GEMINI_API_KEY)
-gemini_model = genai.GenerativeModel("gemini-3.6-flash")
-
+# ============ SETUP ============
 def get_google_sheet():
-    """Connect to Google Sheet with detailed debugging"""
-    print("  Starting Google Sheet connection...")
-    
+    """Connect to Google Sheet"""
     try:
-        print("  Step 1: Parsing JSON credentials...")
         creds_dict = json.loads(GOOGLE_CREDS)
-        print("    ✓ JSON parsed")
-        
-        print("  Step 2: Creating Credentials object...")
         scopes = [
             'https://www.googleapis.com/auth/spreadsheets',
             'https://www.googleapis.com/auth/drive'
         ]
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        print("    ✓ Credentials created")
-        
-        print("  Step 3: Authorizing with gspread...")
         client = gspread.authorize(creds)
-        print("    ✓ gspread authorized")
-        
-        print(f"  Step 4: Opening sheet with ID: {GOOGLE_SHEET_ID}")
         sheet = client.open_by_key(GOOGLE_SHEET_ID)
-        print(f"    ✓ Sheet opened: {sheet.title}")
-        
-        print("  Step 5: Getting first worksheet...")
-        worksheet = sheet.sheet1
-        print(f"    ✓ Worksheet accessed: {worksheet.title}")
-        
-        return worksheet
-        
-    except json.JSONDecodeError as e:
-        print(f"  ✗ JSON parsing failed: {e}")
-        return None
+        return sheet.sheet1
     except Exception as e:
-        print(f"  ✗ Error at some step: {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()  # This prints the full error stack
+        print(f"✗ Error connecting to Google Sheet: {e}")
         return None
 
-# ============ MOCK LEADS (for testing) ============
-def get_test_leads():
-    """Return sample leads for testing"""
-    return [
-        {
-            "name": "João Silva",
-            "business_name": "Silva Adventure Tours",
-            "email": "joao@silvaadventure.com",
-            "source": "google_maps",
-            "reviews_mention": "Great hiking tours, knows Fanal Forest well"
-        },
-        {
-            "name": "Maria Costa",
-            "business_name": "Madeira Nature Walks",
-            "email": "maria@madeiranaturewalks.pt",
-            "source": "google_maps",
-            "reviews_mention": "Expert guide, takes groups to Fanal regularly"
-        },
-        {
-            "name": "Pedro Nunes",
-            "business_name": "Fanal Forest Expeditions",
-            "email": "pedro@fanalexpeditions.com",
-            "source": "google_maps",
-            "reviews_mention": "Specializes in Fanal Forest tours"
-        }
+# ============ SCRAPING ============
+def scrape_google_maps_guides():
+    """Scrape Fanal Forest tour guides from Google Maps"""
+    leads = []
+    
+    try:
+        print("🔍 Scraping Google Maps...")
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("user-agent=Mozilla/5.0")
+        
+        driver = webdriver.Chrome(options=options)
+        
+        # Search for Fanal Forest tours
+        search_url = "https://www.google.com/maps/search/fanal+forest+madeira+tours"
+        driver.get(search_url)
+        time.sleep(5)
+        
+        # Try to get business listings
+        try:
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_all_elements_located((By.CLASS_NAME, "hfpxzc"))
+            )
+        except:
+            print("  ℹ No results with expected selectors, trying alternative...")
+        
+        # Get all business links
+        businesses = driver.find_elements(By.CLASS_NAME, "hfpxzc")
+        
+        print(f"  Found {len(businesses)} listings")
+        
+        for i, business in enumerate(businesses[:10]):  # Limit to 10 per run
+            try:
+                name = business.get_attribute("aria-label")
+                if name:
+                    # Extract name and location
+                    parts = name.split(",")
+                    business_name = parts[0].strip() if parts else name
+                    location = ",".join(parts[1:]).strip() if len(parts) > 1 else ""
+                    
+                    lead = {
+                        "name": business_name.split("-")[0].strip() if "-" in business_name else business_name,
+                        "business_name": business_name,
+                        "location": location,
+                        "source": "google_maps",
+                        "website": None,
+                        "instagram": None,
+                        "whatsapp": None
+                    }
+                    leads.append(lead)
+                    print(f"  ✓ {business_name}")
+            except Exception as e:
+                print(f"  ✗ Error processing listing: {e}")
+                continue
+        
+        driver.quit()
+        
+    except Exception as e:
+        print(f"✗ Google Maps scraping error: {e}")
+        try:
+            driver.quit()
+        except:
+            pass
+    
+    return leads
+
+def extract_contact_info(lead):
+    """Try to extract Instagram, WhatsApp from website or common patterns"""
+    
+    # Try to find Instagram handle (common: instagram.com/username)
+    instagram_patterns = [
+        r"instagram\.com/([a-zA-Z0-9_\.]+)",
+        r"@([a-zA-Z0-9_\.]+)",  # @username format
     ]
-
-# ============ PERSONALIZATION WITH GEMINI ============
-def personalize_message(lead):
-    """Use Gemini to personalize outreach message"""
     
-    prompt = f"""
-You are helping reach out to a tour guide in Madeira. Here's their information:
-- Name: {lead.get('name', 'Guide')}
-- Business: {lead.get('business_name', 'Unknown')}
-- Reviews mention: {lead.get('reviews_mention', '')}
-
-Write a SHORT, friendly, personalized email (2-3 paragraphs max) asking them to mention the Herdy app to their clients who visit Fanal Forest.
-
-The Herdy app helps hikers find wildlife/livestock on trails in real-time using crowdsourced data. It's completely free with no commission model.
-
-Keep it casual and genuine. Mention their business/tours specifically. End with a question asking if they'd be open to chatting.
-
-Write ONLY the email body, no subject line, no preamble. Keep it under 200 words.
-"""
+    # Try to find WhatsApp (common: wa.me/number or direct number)
+    whatsapp_patterns = [
+        r"wa\.me/(\d{10,15})",
+        r"whatsapp\.com/\?phone=(\d{10,15})",
+        r"\+?(\d{10,15})",  # Any long number
+    ]
     
-    try:
-        print(f"    ⏳ Calling Gemini API...")
-        response = gemini_model.generate_content(prompt)
-        print(f"    ✓ Gemini responded")
-        
-        if response.text:
-            print(f"    ✓ Got message text ({len(response.text)} chars)")
-            return response.text
-        else:
-            print(f"    ✗ Response has no text")
-            return None
+    # If they have a website, try to scrape it
+    if lead.get("website"):
+        try:
+            response = requests.get(lead["website"], timeout=5)
+            text = response.text.lower()
             
-    except Exception as e:
-        print(f"    ✗ Gemini API error: {type(e).__name__}: {e}")
-        return None
-# ============ EMAIL SENDING ============
-def send_email(lead, message_body):
-    """Send email via SendGrid"""
+            # Find Instagram
+            for pattern in instagram_patterns:
+                match = re.search(pattern, text, re.IGNORECASE)
+                if match:
+                    lead["instagram"] = match.group(1)
+                    break
+            
+            # Find WhatsApp
+            for pattern in whatsapp_patterns:
+                match = re.search(pattern, text)
+                if match:
+                    lead["whatsapp"] = match.group(1)
+                    break
+        except:
+            pass
     
-    email = lead.get("email")
-    if not email:
-        return False, "No email found"
-    
-    url = "https://api.sendgrid.com/v3/mail/send"
-    headers = {
-        "Authorization": f"Bearer {SENDGRID_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
-    subject = f"Free Tool for Your {lead.get('business_name', 'Tours')} Guests - Herdy App"
-    
-    data = {
-        "personalizations": [{"to": [{"email": email, "name": lead.get("name", "")}]}],
-        "from": {"email": SENDGRID_FROM_EMAIL, "name": "Gabriel - Herdy"},
-        "subject": subject,
-        "content": [{"type": "text/plain", "value": message_body}]
-    }
-    
-    try:
-        print(f"  📧 Sending email to {email}...")
-        response = requests.post(url, json=data, headers=headers)
-        
-        if response.status_code in [200, 201, 202]:
-            return True, "sent"
-        else:
-            print(f"  ✗ SendGrid error: {response.status_code}")
-            print(f"  Response: {response.text}")
-            return False, f"SendGrid error: {response.status_code}"
-    except Exception as e:
-        print(f"  ✗ Error sending email: {e}")
-        return False, str(e)
+    return lead
 
-# ============ TRACKING ============
-def log_to_sheet(worksheet, lead, message, status, response_text=""):
-    """Log outreach to Google Sheet"""
+# ============ LOGGING ============
+def log_to_sheet(worksheet, lead):
+    """Log lead to Google Sheet"""
     if not worksheet:
-        print("  ✗ No worksheet to log to")
         return
     
     try:
         row = [
             datetime.now().isoformat(),
             lead.get("name", ""),
-            lead.get("email", ""),
             lead.get("business_name", ""),
+            lead.get("location", ""),
+            lead.get("instagram", ""),
+            lead.get("whatsapp", ""),
+            lead.get("website", ""),
             lead.get("source", ""),
-            message[:100] if message else "",  # First 100 chars
-            status,
-            response_text,
-            ""  # follow_up_date
+            "na",  # status - you'll fill this in manually
+            ""    # notes
         ]
         worksheet.append_row(row)
-        print(f"  ✓ Logged to sheet")
+        return True
     except Exception as e:
         print(f"  ✗ Error logging to sheet: {e}")
+        return False
+
+# ============ CHECK FOR DUPLICATES ============
+def is_duplicate(worksheet, business_name):
+    """Check if this lead already exists in the sheet"""
+    try:
+        all_values = worksheet.get_all_values()
+        if len(all_values) <= 1:  # Only headers
+            return False
+        
+        for row in all_values[1:]:
+            if row and row[2].lower() == business_name.lower():
+                return True
+        return False
+    except:
+        return False
 
 # ============ MAIN EXECUTION ============
 def main():
-    print("🤖 Starting Herdy Outreach Bot...")
+    print("=" * 50)
+    print("🤖 Herdy Lead Scout - Manual Mode")
+    print("=" * 50)
     print()
-
-    # Validate creds first
-    if not validate_google_creds():
-        print("✗ Cannot proceed - invalid credentials")
-        return
     
-    # Get Google Sheet
+    # Connect to sheet
     worksheet = get_google_sheet()
     if not worksheet:
         print("✗ Cannot proceed without Google Sheet access")
@@ -245,42 +197,41 @@ def main():
     print("✓ Connected to Google Sheet")
     print()
     
-    # Get leads (test data for now)
-    print("📋 Loading leads...")
-    leads = get_test_leads()
-    print(f"✓ Loaded {len(leads)} test leads")
+    # Scrape leads
+    all_leads = scrape_google_maps_guides()
+    
+    if not all_leads:
+        print("✗ No leads found")
+        return
+    
     print()
     
-    # Process leads
-    emails_sent = 0
-    for i, lead in enumerate(leads[:MAX_EMAILS_PER_RUN], 1):
-        print(f"[{i}/{len(leads)}] Processing: {lead.get('name', 'Unknown')}")
-        
-        # Personalize message
-        message = personalize_message(lead)
-        if not message:
-            print(f"  ✗ Failed to personalize")
-            log_to_sheet(worksheet, lead, "", "failed_personalization")
+    # Filter duplicates and log
+    new_leads = 0
+    for lead in all_leads:
+        if is_duplicate(worksheet, lead["business_name"]):
+            print(f"⊘ Already exists: {lead['business_name']}")
             continue
         
-        # Send email
-        success, status = send_email(lead, message)
-        if success:
-            print(f"  ✓ Email sent successfully")
-            log_to_sheet(worksheet, lead, message, "sent")
-            emails_sent += 1
-        else:
-            print(f"  ✗ Failed to send: {status}")
-            log_to_sheet(worksheet, lead, message, "failed", status)
+        print(f"📝 Adding: {lead['business_name']}")
         
-        print()
-        # Rate limit
-        time.sleep(random.uniform(1, 2))
+        # Try to extract contact info
+        lead = extract_contact_info(lead)
+        
+        # Log to sheet
+        if log_to_sheet(worksheet, lead):
+            print(f"  ✓ Logged to sheet")
+            new_leads += 1
+        
+        time.sleep(1)
     
+    print()
     print("=" * 50)
-    print(f"✓ Bot completed successfully!")
-    print(f"✓ Emails sent: {emails_sent}/{len(leads)}")
+    print(f"✓ Scan complete!")
+    print(f"✓ New leads found: {new_leads}")
     print("=" * 50)
+    print()
+    print("📱 Next steps: Check your sheet and manually message on Instagram/WhatsApp")
 
 if __name__ == "__main__":
     main()
